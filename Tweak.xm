@@ -192,10 +192,16 @@ static void handleTapGesture(UITapGestureRecognizer *gesture) {
 %group VCamHooks
 
 %hook AVCaptureSession
-- (void)startRunning { %orig; }
-- (void)stopRunning { %orig; }
-%end
 
+- (void)startRunning {
+    %orig;
+}
+
+- (void)stopRunning {
+    %orig;
+}
+
+%end
 %hook AVCaptureVideoDataOutput
 - (void)setSampleBufferDelegate:(id<AVCaptureVideoDataOutputSampleBufferDelegate>)delegate 
                           queue:(dispatch_queue_t)queue {
