@@ -163,49 +163,69 @@ static void handleTapGesture(id self, SEL _cmd, UITapGestureRecognizer *gesture)
     (void)_cmd;
 
     UIViewController *topVC = findTopViewController();
-    UIViewController *topVC = findTopViewController();
     if (!topVC) return;
-    
-    UIAlertController *alert = [UIAlertController 
-        alertControllerWithTitle:@"VCam" 
+
+    UIAlertController *alert = [UIAlertController
+        alertControllerWithTitle:@"VCam"
         message:g_vcamEnabled ? @"虚拟相机已启用" : @"虚拟相机已关闭"
         preferredStyle:UIAlertControllerStyleActionSheet];
-    
-    [alert addAction:[UIAlertAction actionWithTitle:@"选择视频" 
-        style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        
-        if (![UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeSavedPhotosAlbum]) {
-            return;
-        }
-        UIImagePickerController *picker = [[UIImagePickerController alloc] init];
-        picker.sourceType = UIImagePickerControllerSourceTypeSavedPhotosAlbum;
-        picker.mediaTypes = @[@"public.movie"];
-        picker.delegate = g_pickerDelegate;
-        [topVC presentViewController:picker animated:YES completion:nil];
-    }]];
-    
-    [alert addAction:[UIAlertAction actionWithTitle:g_vcamEnabled ? @"关闭虚拟相机" : @"开启虚拟相机" 
-        style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
-        g_vcamEnabled = !g_vcamEnabled;
-        if (g_floatButton) {
-            g_floatButton.backgroundColor = g_vcamEnabled 
-                ? [UIColor colorWithRed:0.2 green:0.8 blue:0.4 alpha:0.9]
-                : [UIColor colorWithRed:0.4 green:0.4 blue:0.4 alpha:0.9];
-        }
-        if (g_vcamEnabled) {
-            [[MediaManager sharedManager] start];
-        } else {
-            [[MediaManager sharedManager] stop];
-        }
-    }]];
-    
-    [alert addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
-    
+
+    [alert addAction:[UIAlertAction actionWithTitle:@"选择视频"
+        style:UIAlertActionStyleDefault
+        handler:^(UIAlertAction *action) {
+            if (![UIImagePickerController isSourceTypeAvailable:
+                  UIImagePickerControllerSourceTypeSavedPhotosAlbum]) {
+                return;
+            }
+
+            UIImagePickerController *picker =
+                [[UIImagePickerController alloc] init];
+
+            picker.sourceType =
+                UIImagePickerControllerSourceTypeSavedPhotosAlbum;
+            picker.mediaTypes = @[@"public.movie"];
+            picker.delegate = g_pickerDelegate;
+
+            [topVC presentViewController:picker
+                                animated:YES
+                              completion:nil];
+        }]];
+
+    [alert addAction:[UIAlertAction
+        actionWithTitle:g_vcamEnabled ? @"关闭虚拟相机" : @"开启虚拟相机"
+        style:UIAlertActionStyleDestructive
+        handler:^(UIAlertAction *action) {
+            g_vcamEnabled = !g_vcamEnabled;
+
+            if (g_floatButton) {
+                g_floatButton.backgroundColor = g_vcamEnabled
+                    ? [UIColor colorWithRed:0.2
+                                      green:0.8
+                                       blue:0.4
+                                      alpha:0.9]
+                    : [UIColor colorWithRed:0.4
+                                      green:0.4
+                                       blue:0.4
+                                      alpha:0.9];
+            }
+
+            if (g_vcamEnabled) {
+                [[MediaManager sharedManager] start];
+            } else {
+                [[MediaManager sharedManager] stop];
+            }
+        }]];
+
+    [alert addAction:[UIAlertAction
+        actionWithTitle:@"取消"
+        style:UIAlertActionStyleCancel
+        handler:nil]];
+
     if (alert.popoverPresentationController) {
         alert.popoverPresentationController.sourceView = gesture.view;
         alert.popoverPresentationController.sourceRect = gesture.view.bounds;
     }
-    
+
     [topVC presentViewController:alert animated:YES completion:nil];
 }
 
@@ -272,19 +292,27 @@ static void handleTapGesture(id self, SEL _cmd, UITapGestureRecognizer *gesture)
 
 %ctor {
     @autoreleasepool {
-        g_pickerDelegate = [[VCamImagePickerControllerDelegate alloc] init];
-        
-       NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
+        g_pickerDelegate =
+            [[VCamImagePickerControllerDelegate alloc] init];
 
-if (![bundleID isEqualToString:@"com.apple.springboard"]) {
-    %init(VCamHooks);
+        NSString *bundleID =
+            [[NSBundle mainBundle] bundleIdentifier];
 
-    dispatch_after(
-        dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
-        dispatch_get_main_queue(), ^{
-            @autoreleasepool {
-                setupFloatButton();
-            }
+        if (![bundleID isEqualToString:@"com.apple.springboard"]) {
+            %init(VCamHooks);
+
+            dispatch_after(
+                dispatch_time(
+                    DISPATCH_TIME_NOW,
+                    (int64_t)(1.0 * NSEC_PER_SEC)
+                ),
+                dispatch_get_main_queue(),
+                ^{
+                    @autoreleasepool {
+                        setupFloatButton();
+                    }
+                }
+            );
         }
-    );
+    }
 }
