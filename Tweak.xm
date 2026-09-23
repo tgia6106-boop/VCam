@@ -2,6 +2,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
 #import <substrate.h>
+#import <objc/runtime.h>
 #import "MediaManager.h"
 
 // ============================================================================
@@ -233,7 +234,69 @@ static void handleTapGesture(id self, SEL _cmd, UITapGestureRecognizer *gesture)
 // MARK: - Hook AVCaptureSession / Video Output
 // ============================================================================
 
+static const void *kVCamProxyKey = &kVCamProxyKey;
+
+@interface VCamVideoDelegateProxy : NSObject
+<AVCaptureVideoDataOutputSampleBufferDelegate>
+
+@property (nonatomic, weak)
+id<AVCaptureVideoDataOutputSampleBufferDelegate> originalDelegate;
+
+@end
+
+@implementation VCamVideoDelegateProxy
+
+- (BOOL)respondsToSelector:(SEL)selector {
+    if ([super respondsToSelector:selector]) {
+        return YES;
+    }
+
+    return [self.originalDelegate respondsToSelector:selector];
+}
+
+- (id)forwardingTargetForSelector:(SEL)selector {
+    if ([self.originalDelegate respondsToSelector:selector]) {
+        return self.originalDelegate;
+    }
+
+    return [super forwardingTargetForSelector:selector];
+}
+
+- (void)captureOutput:(AVCaptureOutput *)output
+didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
+       fromConnection:(AVCaptureConnection *)connection {
+
+    CMSampleBufferRef fakeFrame = NULL;
+
+    if (g_vcamEnabled &&
+        [[MediaManager sharedManager] isRunning]) {
+
+        fakeFrame =
+            [[MediaManager sharedManager] nextVideoFrame];
+    }
+
+    CMSampleBufferRef outputFrame =
+        fakeFrame ? fakeFrame : sampleBuffer;
+
+    id<AVCaptureVideoDataOutputSampleBufferDelegate> delegate =
+        self.originalDelegate;
+
+    if ([delegate respondsToSelector:_cmd]) {
+        [delegate captureOutput:output
+          didOutputSampleBuffer:outputFrame
+                 fromConnection:connection];
+    }
+
+    if (fakeFrame) {
+        CFRelease(fakeFrame);
+    }
+}
+
+@end
+
+
 %group VCamHooks
+
 
 %hook AVCaptureSession
 
@@ -246,43 +309,67 @@ static void handleTapGesture(id self, SEL _cmd, UITapGestureRecognizer *gesture)
 }
 
 %end
+
+
 %hook AVCaptureVideoDataOutput
-- (void)setSampleBufferDelegate:(id<AVCaptureVideoDataOutputSampleBufferDelegate>)delegate 
-                          queue:(dispatch_queue_t)queue {
-    %orig;
+
+- (void)setSampleBufferDelegate:
+        (id<AVCaptureVideoDataOutputSampleBufferDelegate>)delegate
+        queue:(dispatch_queue_t)queue {
+
+    if (!delegate) {
+        objc_setAssociatedObject(
+            self,
+            kVCamProxyKey,
+            nil,
+            OBJC_ASSOCIATION_RETAIN_NONATOMIC
+        );
+
+        %orig(delegate, queue);
+        return;
+    }
+
+    if ([delegate isKindOfClass:[VCamVideoDelegateProxy class]]) {
+        %orig(delegate, queue);
+        return;
+    }
+
+    VCamVideoDelegateProxy *proxy =
+        [[VCamVideoDelegateProxy alloc] init];
+
+    proxy.originalDelegate = delegate;
+
+    objc_setAssociatedObject(
+        self,
+        kVCamProxyKey,
+        proxy,
+        OBJC_ASSOCIATION_RETAIN_NONATOMIC
+    );
+
+    %orig(proxy, queue);
 }
+
 %end
 
-// Intercept frame delegate callback -> substitute with fake frames
-%hook NSObject
-- (void)captureOutput:(AVCaptureOutput *)output 
-    didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer 
-           fromConnection:(AVCaptureConnection *)connection {
-    
-    if (g_vcamEnabled && [[MediaManager sharedManager] isRunning]) {
-        CMSampleBufferRef fakeFrame = [[MediaManager sharedManager] nextVideoFrame];
-        if (fakeFrame) {
-            %orig(output, fakeFrame, connection);
-            CFRelease(fakeFrame);
-            return;
-        }
-    }
-    %orig;
-}
-%end
 
 %hook AVCapturePhotoOutput
-- (void)capturePhotoWithSettings:(AVCapturePhotoSettings *)settings 
+
+- (void)capturePhotoWithSettings:(AVCapturePhotoSettings *)settings
                         delegate:(id<AVCapturePhotoCaptureDelegate>)delegate {
     %orig;
 }
+
 %end
 
+
 %hook AVCaptureVideoPreviewLayer
+
 - (void)setSession:(AVCaptureSession *)session {
     %orig;
 }
+
 %end
+
 
 %end // VCamHooks group
 
