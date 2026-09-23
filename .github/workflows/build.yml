@@ -23,7 +23,7 @@ jobs:
     - name: Install Theos
       run: |
         export THEOS=~/theos
-git clone --recursive https://github.com/roothide/theos.git ~/theos
+        git clone --recursive https://github.com/roothide/theos.git ~/theos
         echo "THEOS=$HOME/theos" >> $GITHUB_ENV
         echo "PATH=$HOME/theos/bin:$PATH" >> $GITHUB_ENV
       timeout-minutes: 10
