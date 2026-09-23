@@ -41,8 +41,8 @@ static UIButton *g_floatButton = nil;
 @end
 
 static void setupFloatButton(void);
-static void handlePanGesture(UIPanGestureRecognizer *gesture);
-static void handleTapGesture(UITapGestureRecognizer *gesture);
+static void handlePanGesture(id self, SEL _cmd, UIPanGestureRecognizer *gesture);
+static void handleTapGesture(id self, SEL _cmd, UITapGestureRecognizer *gesture);
 
 static void setupFloatButton() {
     if (g_floatButton) return;
@@ -89,7 +89,10 @@ static void setupFloatButton() {
                     (IMP)handleTapGesture, "v@:@");
 }
 
-static void handlePanGesture(UIPanGestureRecognizer *gesture) {
+static void handlePanGesture(id self, SEL _cmd, UIPanGestureRecognizer *gesture) {
+    (void)self;
+    (void)_cmd;
+
     UIView *btn = gesture.view;
     CGPoint translation = [gesture translationInView:btn.superview];
     btn.center = CGPointMake(btn.center.x + translation.x, btn.center.y + translation.y);
@@ -155,7 +158,11 @@ static UIViewController *findTopViewController(void) {
 
 static VCamImagePickerControllerDelegate *g_pickerDelegate = nil;
 
-static void handleTapGesture(UITapGestureRecognizer *gesture) {
+static void handleTapGesture(id self, SEL _cmd, UITapGestureRecognizer *gesture) {
+    (void)self;
+    (void)_cmd;
+
+    UIViewController *topVC = findTopViewController();
     UIViewController *topVC = findTopViewController();
     if (!topVC) return;
     
@@ -267,16 +274,17 @@ static void handleTapGesture(UITapGestureRecognizer *gesture) {
     @autoreleasepool {
         g_pickerDelegate = [[VCamImagePickerControllerDelegate alloc] init];
         
-        NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
-        if (![bundleID isEqualToString:@"com.apple.springboard"]) {
-            %init(VCamHooks);
+       NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
+
+if (![bundleID isEqualToString:@"com.apple.springboard"]) {
+    %init(VCamHooks);
+
+    dispatch_after(
+        dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
+        dispatch_get_main_queue(), ^{
+            @autoreleasepool {
+                setupFloatButton();
+            }
         }
-        
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), 
-            dispatch_get_main_queue(), ^{
-                @autoreleasepool {
-                    setupFloatButton();
-                }
-            });
-    }
+    );
 }
